@@ -17,8 +17,6 @@
 class Canvas {
     const uint8_t darkness;
     uint32_t diameter;
-    uint8_t linesPerScoring;
-    size_t currentVerticeIndex;
     std::vector<std::vector<uint8_t>> threadImage;
     std::vector<std::vector<uint8_t>> originImage;
     std::vector<sf::Vector2i> vertices;
@@ -26,18 +24,25 @@ class Canvas {
     sf::Vector2i previousVertice;
     std::vector<uint32_t> threadOrder;
     std::vector<std::queue<size_t>> bestLines;
+
+    bool isIncreasing(const size_t &index, const uint32_t &range);
     sf::Vector2i bestFitLine();
-    void bestNLines(const size_t &verticeIndex);
+    sf::Vector2i fastFitLine(const uint32_t &range);
     int calculateScore(const std::vector<sf::Vector2i> &pixels);
+    int calculateScore(const sf::Vector2i &vertex);
+
+    void writeStatsToFile();
 
 public:
     explicit Canvas(const uint32_t &numberOfVertices, const uint8_t &darkness);
 
     bool drawBestLine();
-    bool drawLine();
     void draw(sf::RenderWindow &window);
-    void drawImage(sf::RenderWindow &window, const std::vector<std::vector<uint8_t>> &image);
     uint32_t getDiameter() const {return diameter;}
+
+    //Statistics
+    std::vector<std::vector<int32_t>> scoringDistribution;
+    size_t distributionIndex;
 };
 
 

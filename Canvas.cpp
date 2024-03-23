@@ -4,12 +4,13 @@
 
 #include "Canvas.h"
 #include <unistd.h>
+#include <chrono>
+#include <random>
 
 Canvas::Canvas(const uint32_t &numberOfVertices, const uint8_t &darkness):
     darkness(darkness) {
-    linesPerScoring = 25;
 
-    ImageTransform::loadImage("../sobala.png", originImage);
+    ImageTransform::loadImage("../wawr.png", originImage);
     this->diameter = originImage.size();
     Bresenham::setDiameter(diameter);
 
@@ -22,9 +23,10 @@ Canvas::Canvas(const uint32_t &numberOfVertices, const uint8_t &darkness):
     for(int i=0; i<numberOfVertices; i++) {
         vertices.emplace_back(static_cast<int>(radius+radius*cos(i*deltaAngle)), static_cast<int>(radius+radius*sin(i*deltaAngle)));
     }
-    currentVerticeIndex = 0;
     currentVertice = previousVertice = vertices[0];
     bestLines.resize(vertices.size());
+
+    scoringDistribution.resize(400);
 
 }
 
@@ -44,25 +46,86 @@ sf::Vector2i Canvas::bestFitLine() {
             bestVerticeIndex = i;
         }
     }
+
     threadOrder.emplace_back(bestVerticeIndex);
-    if(bestVerticeIndex == -1) {
+    if(bestVerticeIndex == -1 or bestScore < 10) {
         return {-1, -1};
     }
     return vertices[bestVerticeIndex];
+}
+
+bool Canvas::isIncreasing(const size_t &index, const uint32_t &range) {
+    int startingScore = calculateScore(vertices[index]);
+    for(uint32_t i=1; i<=range; i++) {
+        if(index+i >= vertices.size()) {
+            break;
+        }
+        if(calculateScore(vertices[index+i]) > static_cast<int>(startingScore*1.05)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Uses fact that the scores of lines are in approximation locally sorted
+   Doesn't give best result but good enough and fassst WIP*/
+sf::Vector2i Canvas::fastFitLine(const uint32_t &range) {
+    std::random_device rand;
+    size_t left = rand()%(vertices.size()/2);
+    size_t right = vertices.size() - 1;
+    std::vector<sf::Vector2i> pixels;
+    auto start = std::chrono::high_resolution_clock::now();
+    while(left < right) {
+        size_t mid = left + ((right - left) / 2);
+        for(uint32_t i=0; i<=range; i++) {
+            if (!isIncreasing(mid, range)) {
+                right = mid;
+            }
+            else {
+                left = mid + 1;
+            }
+        }
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout << "Time: " << duration.count()/1000.f << "ms" << std::endl;
+    threadOrder.emplace_back(left);
+    return vertices[left];
 }
 
 int Canvas::calculateScore(const std::vector<sf::Vector2i> &pixels){
     long int difference=0;
     for(auto &pixel : pixels) {
         if(originImage[pixel.x][pixel.y]-threadImage[pixel.x][pixel.y] + darkness < 0) {
-            difference+=static_cast<int>(pow(originImage[pixel.x][pixel.y]-threadImage[pixel.x][pixel.y] + darkness, 2));
+            difference+=static_cast<int>((originImage[pixel.x][pixel.y]-threadImage[pixel.x][pixel.y] + darkness, 2));
+        }
+    }
+    //Statistics
+    if(distributionIndex<scoringDistribution.size()) {
+        scoringDistribution[distributionIndex].emplace_back(difference);
+    }
+    return difference;
+}
+
+
+
+int Canvas::calculateScore(const sf::Vector2i &vertex){
+    std::vector<sf::Vector2i> pixels = Bresenham::connectVertices(currentVertice, vertex);
+    long int difference=0;
+    for(auto &pixel : pixels) {
+        if(originImage[pixel.x][pixel.y]-threadImage[pixel.x][pixel.y] + darkness < 0) {
+            difference+=static_cast<int>((originImage[pixel.x][pixel.y]-threadImage[pixel.x][pixel.y] + darkness) *
+                    (originImage[pixel.x][pixel.y]-threadImage[pixel.x][pixel.y] + darkness));
         }
     }
     return difference;
 }
 
 bool Canvas::drawBestLine() {
-    sf::Vector2i nextVertice = bestFitLine();
+//    sf::Vector2i nextVertice = bestFitLine();
+    sf::Vector2i nextVertice = fastFitLine(2);
+
     if(nextVertice.x == -1 and nextVertice.y ==-1) {
         return false;
     }
@@ -77,12 +140,20 @@ bool Canvas::drawBestLine() {
     }
     previousVertice = currentVertice;
     currentVertice = nextVertice;
+
+    //Statistics
+    distributionIndex++;
+
     return true;
 
 }
 
+
 void Canvas::draw(sf::RenderWindow &window) {
-    drawBestLine();
+    for(int i=0; i<100; i++) {
+        drawBestLine();
+    }
+    writeStatsToFile();
     sf::RectangleShape pixel;
     pixel.setSize({1, 1});
     sf::Color color = {255, 255, 255};
@@ -92,8 +163,23 @@ void Canvas::draw(sf::RenderWindow &window) {
             pixel.setPosition(i, j);
             pixel.setFillColor(color);
             window.draw(pixel);
+
         }
     }
+}
+
+void Canvas::writeStatsToFile() {
+    if(distributionIndex!=10) {
+        return;
+    }
+    std::fstream stats("../stats.txt", std::ios::out);
+    for(size_t i=0; i<scoringDistribution.size(); i++) {
+        for(size_t j=0; j<scoringDistribution[i].size(); j++) {
+            stats << scoringDistribution[i][j] << " ";
+        }
+        stats << std::endl;
+    }
+    stats.close();
 }
 
 

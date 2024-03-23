@@ -10,9 +10,6 @@
 class ImageTransform {
 public:
     static void loadImage(const std::string &path, std::vector<std::vector<uint8_t>> &threadImage);
-
-
-
 };
 
 
