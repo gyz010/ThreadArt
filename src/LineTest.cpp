@@ -2,7 +2,7 @@
 // Created by gyz on 24.11.23.
 //
 
-#include "LineTest.h"
+#include "../inc/LineTest.h"
 
 size_t LineTest::j_iter ;
 size_t LineTest::i_iter ;

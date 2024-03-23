@@ -2,7 +2,7 @@
 // Created by Kuba on 24.09.2023.
 //
 
-#include "Bresenham.h"
+#include "../inc/Bresenham.h"
 
 uint32_t Bresenham::diameter;
 

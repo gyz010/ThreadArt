@@ -1,12 +1,11 @@
-#include <iostream>
-#include "Canvas.h"
+#include "../inc/Canvas.h"
 #include <sys/resource.h>
-#include <chrono>
+
 int main() {
 
     //Increase stack size
     const rlim_t kStackSize = 64L * 1024L * 1024L;   // min stack size = 64 Mb
-    struct rlimit rl;
+    struct rlimit rl{};
     int result;
 
     result = getrlimit(RLIMIT_STACK, &rl);
@@ -23,10 +22,10 @@ int main() {
         }
     }
 
-    Canvas canvas(400, 40);
+    Canvas canvas(400, 20);
     sf::RenderWindow window(sf::VideoMode(canvas.getDiameter(), canvas.getDiameter()), "Drawing",  sf::Style::Close);
     window.setVerticalSyncEnabled(false);
-    sf::Event event;
+    sf::Event event{};
     while(window.isOpen()) {
         while(window.pollEvent(event)) {
 
